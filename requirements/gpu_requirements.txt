@@ -5,7 +5,9 @@ numpy
 opencv-python
 scipy
 matplotlib
-tensorflow-gpu<=1.15.0
+nvidia-pyindex
+nvidia-tensorflow[horovod]
+nvidia-tensorboard==1.15
 scikit-learn
 scikit-image
 gputil
