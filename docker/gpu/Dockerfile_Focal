@@ -51,7 +51,7 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
 	python get-pip.py && \
 	rm get-pip.py
 
-# Required for easy_install to find right skimage version for Python 3.5.
+# Required for easy_install to find right skimage version.
 RUN pip install -U testresources setuptools
 
 # Make working directory.
@@ -62,6 +62,9 @@ ADD docker/gqcnn.tar .
 
 # This is because `python setup.py develop` skips install_requires (I think) and also because we want to explicitly use the GPU requirements.
 RUN pip install -r gqcnn/requirements/gpu_requirements.txt
+RUN pip install nvidia-pyindex \
+        nvidia-tensorflow[horovod] \
+        nvidia-tensorboard==1.15
 
 # Install the library in editable mode because it's more versatile (in case we want to develop or if users want to modify things)
 # Keep the egg outside of the library in site-packages in case we want to mount the library (overwriting it) for development with docker
