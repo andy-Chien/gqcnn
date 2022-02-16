@@ -10,3 +10,4 @@ scikit-image
 gputil
 psutil
 tifffile<=2021.11.2
+imageio<=2.14.1
