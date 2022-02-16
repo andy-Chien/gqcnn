@@ -4,7 +4,7 @@ MAINTAINER Andy Chien <808790017@gms.tku.edu.tw>
 
 # Args
 # `work_dir` must be an absolute path.
-ARG work_dir=/root/Workspace/src
+ARG work_dir=/root/gqcnn_ws/src
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Taipei
 
