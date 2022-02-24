@@ -21,7 +21,9 @@
 # MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
 # request params
-std_msgs/Empty none
+sensor_msgs/Image color_image
+sensor_msgs/Image depth_image
+sensor_msgs/CameraInfo camera_info
 ---
 # response params
 GQCNNGrasp grasp

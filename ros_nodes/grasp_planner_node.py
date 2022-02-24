@@ -37,7 +37,6 @@ import time
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import rospy
-
 from autolab_core import (YamlConfig, CameraIntrinsics, ColorImage,
                           DepthImage, BinaryImage, RgbdImage)
 from visualization import Visualizer2D as vis
@@ -50,7 +49,9 @@ from gqcnn.utils import GripperMode, NoValidGraspsException
 
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Header
-from gqcnn.srv import (GQCNNGraspPlanner, GQCNNGraspPlannerBoundingBox,
+from sensor_msgs.msg import CameraInfo, Image
+
+from gqcnn.srv import (GQCNNGraspPlanner, GQCNNGraspPlannerImg, GQCNNGraspPlannerImgRequest, GQCNNGraspPlannerBoundingBox,
                        GQCNNGraspPlannerSegmask)
 from gqcnn.msg import GQCNNGrasp
 
@@ -74,6 +75,7 @@ class GraspPlanner(object):
         self.cv_bridge = cv_bridge
         self.grasping_policy = grasping_policy
         self.grasp_pose_publisher = grasp_pose_publisher
+        self._subscribe_img_topic = True
 
         # Set minimum input dimensions.
         policy_type = "cem"
@@ -154,6 +156,31 @@ class GraspPlanner(object):
         return color_im, depth_im, camera_intr
 
     def plan_grasp(self, req):
+        """Grasp planner request handler.
+
+        Parameters
+        ---------
+        req: :obj:`ROS ServiceRequest`
+            ROS `ServiceRequest` for grasp planner service.
+        """
+        self._subscribe_img_topic = False
+        img_req = GQCNNGraspPlannerImgRequest()
+        try:
+            img_req.camera_info = self._camera_info
+            img_req.color_image = self._color_img
+            depth_img_mm = self.cv_bridge.imgmsg_to_cv2(self._depth_img, "32FC1")
+            img_req.depth_image = self.cv_bridge.cv2_to_imgmsg(depth_img_mm * 0.001, "32FC1")
+        except CvBridgeError as e:
+            print(e)
+            self._subscribe_img_topic = True
+            return False
+
+        color_im, depth_im, camera_intr = self.read_images(img_req)
+        result = self._plan_grasp(color_im, depth_im, camera_intr)
+        self._subscribe_img_topic = True
+        return result
+
+    def plan_grasp_img(self, req):
         """Grasp planner request handler.
 
         Parameters
@@ -358,6 +385,18 @@ class GraspPlanner(object):
 
         return gqcnn_grasp
 
+    def color_img_cb(self, data):
+        if self._subscribe_img_topic:
+            self._color_img = data
+
+    def depth_img_cb(self, data):
+        if self._subscribe_img_topic:
+            self._depth_img = data
+
+    def camera_inf_cb(self, data):
+        if self._subscribe_img_topic:
+            self._camera_info = data
+
 
 if __name__ == "__main__":
     # Initialize the ROS node.
@@ -370,6 +409,10 @@ if __name__ == "__main__":
     model_name = rospy.get_param("~model_name")
     model_dir = rospy.get_param("~model_dir")
     fully_conv = rospy.get_param("~fully_conv")
+    color_img_topic = rospy.get_param("~color_img_topic")
+    depth_img_topic = rospy.get_param("~depth_img_topic")
+    camera_info_topic = rospy.get_param("~camera_info_topic")
+
     if model_dir.lower() == "default":
         model_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  "../models")
@@ -457,12 +500,19 @@ if __name__ == "__main__":
     # Initialize the ROS service.
     grasp_planning_service = rospy.Service("grasp_planner", GQCNNGraspPlanner,
                                            grasp_planner.plan_grasp)
+    grasp_planning_service_img = rospy.Service("grasp_planner_img", GQCNNGraspPlannerImg,
+                                           grasp_planner.plan_grasp_img)
     grasp_planning_service_bb = rospy.Service("grasp_planner_bounding_box",
                                               GQCNNGraspPlannerBoundingBox,
                                               grasp_planner.plan_grasp_bb)
     grasp_planning_service_segmask = rospy.Service(
         "grasp_planner_segmask", GQCNNGraspPlannerSegmask,
         grasp_planner.plan_grasp_segmask)
+
+    rospy.Subscriber(color_img_topic, Image, grasp_planner.color_img_cb)
+    rospy.Subscriber(depth_img_topic, Image, grasp_planner.depth_img_cb)
+    rospy.Subscriber(camera_info_topic, CameraInfo, grasp_planner.camera_inf_cb)
+
     rospy.loginfo("Grasping Policy Initialized")
 
     # Spin forever.

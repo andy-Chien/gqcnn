@@ -31,6 +31,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   geometry_msgs
   sensor_msgs
+  std_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -78,6 +79,7 @@ catkin_python_setup()
  add_service_files(
   FILES
   GQCNNGraspPlanner.srv
+  GQCNNGraspPlannerImg.srv
   GQCNNGraspPlannerBoundingBox.srv
   GQCNNGraspPlannerSegmask.srv
  )
@@ -94,6 +96,7 @@ catkin_python_setup()
    DEPENDENCIES
    geometry_msgs
    sensor_msgs
+   std_msgs
 )
 
 ################################################
