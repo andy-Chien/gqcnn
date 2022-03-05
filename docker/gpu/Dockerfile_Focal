@@ -4,9 +4,17 @@ MAINTAINER Andy Chien <808790017@gms.tku.edu.tw>
 
 # Args
 # `work_dir` must be an absolute path.
-ARG work_dir=/root/gqcnn_ws/src
+ARG work_dir=/home/docker/gqcnn_ws/src
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Taipei
+
+RUN apt-get update && \
+        apt-get -y install sudo
+
+RUN useradd -m docker && echo "docker:docker" | chpasswd && adduser docker sudo
+
+USER docker
+CMD /bin/bash
 
 # Install `apt-get` deps.
 RUN apt-get update && apt-get install -y \
@@ -54,6 +62,9 @@ RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
 # Required for easy_install to find right skimage version.
 RUN pip install -U testresources setuptools
 
+# Install FlexBE
+RUN apt-get install -y ros-noetic-flexbe-behavior-engine
+
 # Make working directory.
 WORKDIR ${work_dir}
 
@@ -73,4 +84,4 @@ WORKDIR /usr/local/lib/python3.8/site-packages/
 RUN python ${work_dir}/gqcnn/setup.py develop --docker
 
 # Move to the base library dir
-WORKDIR ${work_dir}/gqcnn
+WORKDIR ${work_dir}/..

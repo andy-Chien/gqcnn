@@ -280,10 +280,10 @@ class GraspPlanner(object):
         # Mask bounding box.
         if bounding_box is not None:
             # Calc bb parameters.
-            min_x = bounding_box.minX
-            min_y = bounding_box.minY
-            max_x = bounding_box.maxX
-            max_y = bounding_box.maxY
+            min_x = int(bounding_box.minX)
+            min_y = int(bounding_box.minY)
+            max_x = int(bounding_box.maxX)
+            max_y = int(bounding_box.maxY)
 
             # Contain box to image->don't let it exceed image height/width
             # bounds.
