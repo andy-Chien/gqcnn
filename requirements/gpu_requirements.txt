@@ -11,7 +11,3 @@ gputil
 psutil
 tifffile<=2021.11.2
 imageio<=2.14.1
-
-"autolab-core", "autolab-perception", "visualization", "numpy", "scipy",
-    "matplotlib", "opencv-python", "scikit-learn", "scikit-image", "psutil",
-    "gputil"

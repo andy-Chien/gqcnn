@@ -31,20 +31,20 @@ RUN apt-get update && apt-get install -y \
         unzip \
         vim
 
-# Install ROS
-RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' && \
-        curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && \
-        apt-get update && apt-get install -y ros-noetic-desktop-full \
-        python3-rosdep \
-        python3-rosinstall \
-        python3-rosinstall-generator \
-        python3-wstool build-essential && \
-        alias python=python3 && \
-        ln -s /usr/bin/python3 /usr/bin/python && \
-        echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
-
-# Install FlexBE
-RUN apt-get install -y ros-noetic-flexbe-behavior-engine
+# # Install ROS
+# RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' && \
+#         curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && \
+#         apt-get update && apt-get install -y ros-noetic-desktop-full \
+#         python3-rosdep \
+#         python3-rosinstall \
+#         python3-rosinstall-generator \
+#         python3-wstool build-essential && \
+#         alias python=python3 && \
+#         ln -s /usr/bin/python3 /usr/bin/python && \
+#         echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+# 
+# # Install FlexBE
+# RUN apt-get install -y ros-noetic-flexbe-behavior-engine
 
 # Install libspatialindex (required for latest rtree).
 RUN curl -L https://github.com/libspatialindex/libspatialindex/releases/download/1.9.3/spatialindex-src-1.9.3.tar.gz | tar xz && \
