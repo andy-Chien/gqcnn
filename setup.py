@@ -139,7 +139,7 @@ class InstallCmd(install, object):
 requirements = [
     "autolab-core", "autolab-perception", "visualization", "numpy", "scipy",
     "matplotlib", "opencv-python", "scikit-learn", "scikit-image", "psutil",
-    "gputil", "tifffile<=2021.11.2", "imageio<=2.14.1"
+    "gputil", "tifffile==2021.11.2", "imageio==2.14.1"
 ]
 
 exec(

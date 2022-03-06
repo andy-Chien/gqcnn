@@ -77,8 +77,8 @@ RUN pip install -r gqcnn/requirements/gpu_requirements.txt
 RUN pip install nvidia-pyindex
 RUN pip install --use-deprecated=html5lib nvidia-tensorflow[horovod]
 RUN pip install nvidia-tensorboard==1.15
-RUN pip install tifffile<=2021.11.2
-RUN pip install imageio<=2.14.1
+RUN pip install tifffile==2021.11.2
+RUN pip install imageio==2.14.1
 
 # Install the library in editable mode because it's more versatile (in case we want to develop or if users want to modify things)
 # Keep the egg outside of the library in site-packages in case we want to mount the library (overwriting it) for development with docker
