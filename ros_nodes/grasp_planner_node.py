@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Copyright ©2017. The Regents of the University of California (Regents).
@@ -51,9 +51,9 @@ from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Header
 from sensor_msgs.msg import CameraInfo, Image
 
-from gqcnn.srv import (GQCNNGraspPlanner, GQCNNGraspPlannerImg, GQCNNGraspPlannerImgRequest, GQCNNGraspPlannerBoundingBox,
+from task_msgs.srv import (GQCNNGraspPlanner, GQCNNGraspPlannerImg, GQCNNGraspPlannerImgRequest, GQCNNGraspPlannerBoundingBox,
                        GQCNNGraspPlannerSegmask)
-from gqcnn.msg import GQCNNGrasp
+from task_msgs.msg import GQCNNGrasp
 
 
 class GraspPlanner(object):

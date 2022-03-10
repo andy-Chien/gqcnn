@@ -25,6 +25,6 @@
 # Build the CPU and GPU docker images.
 
 git archive --format=tar -o docker/gqcnn.tar --prefix=gqcnn/ noetic_devel
-docker build --no-cache -t gqcnn/focal_test -f docker/gpu/Dockerfile_Focal .
+docker build --no-cache -t gqcnn/focal -f docker/gpu/Dockerfile_Focal .
 # docker build --no-cache -t gqcnn/cpu -f docker/cpu/Dockerfile .
 rm docker/gqcnn.tar
