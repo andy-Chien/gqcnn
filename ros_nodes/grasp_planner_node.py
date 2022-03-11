@@ -33,9 +33,10 @@ import json
 import math
 import os
 import time
-
+import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
+import quaternion as qtn
 import rospy
 from autolab_core import (YamlConfig, CameraIntrinsics, ColorImage,
                           DepthImage, BinaryImage, RgbdImage)
@@ -53,7 +54,7 @@ from sensor_msgs.msg import CameraInfo, Image
 
 from task_msgs.srv import (GQCNNGraspPlanner, GQCNNGraspPlannerImg, GQCNNGraspPlannerImgRequest, GQCNNGraspPlannerBoundingBox,
                        GQCNNGraspPlannerSegmask)
-from task_msgs.msg import GQCNNGrasp
+from task_msgs.msg import GQCNNGrasp, BoundingBox
 
 
 class GraspPlanner(object):
@@ -76,6 +77,7 @@ class GraspPlanner(object):
         self.grasping_policy = grasping_policy
         self.grasp_pose_publisher = grasp_pose_publisher
         self._subscribe_img_topic = True
+        self._bounding_box = None
 
         # Set minimum input dimensions.
         policy_type = "cem"
@@ -176,7 +178,14 @@ class GraspPlanner(object):
             return False
 
         color_im, depth_im, camera_intr = self.read_images(img_req)
-        result = self._plan_grasp(color_im, depth_im, camera_intr)
+        result = self._plan_grasp(color_im, depth_im, camera_intr,
+                                  bounding_box=self._bounding_box)
+        o = result.pose.orientation
+        q = np.quaternion(o.w, o.x, o.y, o.z)
+        rot = qtn.as_rotation_matrix(q)
+        euler = qtn.as_euler_angles(q)
+        print('[Grasp planner]: rot = {}'.format(rot))
+        print('[Grasp planner]: euler = {}'.format(euler))
         self._subscribe_img_topic = True
         return result
 
@@ -397,6 +406,68 @@ class GraspPlanner(object):
         if self._subscribe_img_topic:
             self._camera_info = data
 
+    def set_bounding_box(self):
+        self._color_img = None
+        rate = rospy.Rate(20)
+        mouse_event = self.MouseEvent()
+        while self._color_img is None and not rospy.is_shutdown():
+            rate.sleep()
+
+        while not rospy.is_shutdown():
+            cv2.namedWindow('Area Bounding', cv2.WINDOW_AUTOSIZE)
+            cv2.setMouseCallback('Area Bounding', mouse_event.extract_coordinates)
+            bounding_img = self.cv_bridge.imgmsg_to_cv2(self._color_img, "rgb8")
+            bbc = mouse_event.get_bbc()
+            if len(bbc) == 2:
+                cv2.rectangle(bounding_img, bbc[0], bbc[1], (36,255,12), 2)
+            elif len(bbc) == 3:
+                cv2.rectangle(bounding_img, bbc[0], bbc[2], (36,255,12), 2)
+            cv2.imshow('Area Bounding', bounding_img)
+            key = cv2.waitKey(1)
+
+            if key == ord('s') and len(bbc) == 3:
+                self._bounding_box = BoundingBox(bbc[0][0], bbc[0][1], bbc[2][0], bbc[2][1])
+                print('top left: {}, bottom right: {}'.format(bbc[0], bbc[1]))
+                cv2.destroyAllWindows()
+                return
+
+            # Close program with keyboard 'q'
+            if key == ord('q'):
+                cv2.destroyAllWindows()
+                print('close without save')
+                return
+            rate.sleep()
+    
+    class MouseEvent(object):
+        def __init__(self):
+            self.bbc = []
+            self.drawing = False
+
+        def get_bbc(self):
+            return self.bbc
+
+        def extract_coordinates(self, event, x, y, flags, parameters):
+            # Record starting (x,y) coordinates on left mouse button click
+            if event == cv2.EVENT_LBUTTONDOWN:
+                self.drawing = True
+                self.bbc = [(x,y)]
+
+            # Record ending (x,y) coordintes on left mouse button release
+            elif event == cv2.EVENT_LBUTTONUP:
+                self.drawing = False
+                self.bbc.append((x,y))
+
+            # Clear drawing boxes on right mouse button click
+            elif event == cv2.EVENT_MBUTTONUP:
+                self.bbc = []
+            
+            elif event == cv2.EVENT_MOUSEMOVE:
+                if not self.drawing:
+                    return
+                if len(self.bbc) == 1:
+                    self.bbc.append((x,y))
+                elif len(self.bbc) == 2:
+                    self.bbc[1] = (x,y)
 
 if __name__ == "__main__":
     # Initialize the ROS node.
@@ -514,6 +585,6 @@ if __name__ == "__main__":
     rospy.Subscriber(camera_info_topic, CameraInfo, grasp_planner.camera_inf_cb)
 
     rospy.loginfo("Grasping Policy Initialized")
-
+    grasp_planner.set_bounding_box()
     # Spin forever.
     rospy.spin()
