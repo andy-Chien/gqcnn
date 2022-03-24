@@ -27,7 +27,7 @@ MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
   <arg name="ns"  default="gqcnn" />
   
   <!-- Configuration file for Grasp Planner Node -->
-  <arg name="model_name"        default="GQCNN-2.0" />
+  <arg name="model_name"        default="GQCNN-4.0-SUCTION" />
   <arg name="model_dir"         default="default" />
   <arg name="fully_conv"        default="False" />
   <arg name="color_img_topic"   default="/rgb/image_raw" /> <!-- /camera/color/image_raw -->

@@ -56,6 +56,10 @@ from task_msgs.srv import (GQCNNGraspPlanner, GQCNNGraspPlannerImg, GQCNNGraspPl
                        GQCNNGraspPlannerSegmask)
 from task_msgs.msg import GQCNNGrasp, BoundingBox
 
+DEPTH_IMG_TYPE = '32FC1'
+COLOR_IMG_TYPE = 'bgr8'
+MM_TO_M = True
+
 
 class GraspPlanner(object):
 
@@ -100,8 +104,15 @@ class GraspPlanner(object):
                 "crop_width"]
             self.min_height = 2 * pad + self.cfg["policy"]["metric"][
                 "crop_height"]
+        if self.cfg["policy"]["metric"]['type'] == 'fcgqcnn':
+            self.roi_height = self.cfg["policy"]["metric"]["fully_conv_gqcnn_config"]["im_height"]
+            self.roi_width = self.cfg["policy"]["metric"]["fully_conv_gqcnn_config"]["im_width"]
+        else:
+            self.roi_height = 480
+            self.roi_width = 640
 
-    def read_images(self, req):
+
+    def read_images(self, req, bb_in=None):
         """Reads images from a ROS service request.
 
         Parameters
@@ -109,6 +120,8 @@ class GraspPlanner(object):
         req: :obj:`ROS ServiceRequest`
             ROS ServiceRequest for grasp planner service.
         """
+        create_seg = self._depth_bg is not None and bb_in is not None
+        segmask_im = None
         # Get the raw depth and color images as ROS `Image` objects.
         raw_color = req.color_image
         raw_depth = req.depth_image
@@ -116,6 +129,14 @@ class GraspPlanner(object):
         # Get the raw camera info as ROS `CameraInfo`.
         raw_camera_info = req.camera_info
 
+        color_im = self.cv_bridge.imgmsg_to_cv2(raw_color, COLOR_IMG_TYPE)
+        depth_im = self.cv_bridge.imgmsg_to_cv2(raw_depth, DEPTH_IMG_TYPE)
+        color_im, bb_out, raw_camera_info = self.crop_img(color_im, bb_in, raw_camera_info)
+        depth_im, _, _ = self.crop_img(depth_im,  bb_in)
+        if create_seg:
+            segmask_im = self.create_segmask(depth_im, bb_out)
+        if MM_TO_M:
+            depth_im *= 0.001
         # Wrap the camera info in a BerkeleyAutomation/autolab_core
         # `CameraIntrinsics` object.
         camera_intr = CameraIntrinsics(
@@ -127,12 +148,10 @@ class GraspPlanner(object):
         # Create wrapped BerkeleyAutomation/autolab_core RGB and depth images
         # by unpacking the ROS images using ROS `CvBridge`
         try:
-            color_im = ColorImage(self.cv_bridge.imgmsg_to_cv2(
-                raw_color, "rgb8"),
-                                  frame=camera_intr.frame)
-            depth_im = DepthImage(self.cv_bridge.imgmsg_to_cv2(
-                raw_depth, desired_encoding="passthrough"),
-                                  frame=camera_intr.frame)
+            color_im = ColorImage(color_im, frame=camera_intr.frame)
+            depth_im = DepthImage(depth_im, frame=camera_intr.frame)
+            if create_seg:
+                segmask_im = BinaryImage(segmask_im, frame=color_im.frame)
         except CvBridgeError as cv_bridge_exception:
             rospy.logerr(cv_bridge_exception)
 
@@ -155,7 +174,7 @@ class GraspPlanner(object):
             rospy.logerr(msg)
             raise rospy.ServiceException(msg)
 
-        return color_im, depth_im, camera_intr
+        return color_im, depth_im, camera_intr, bb_out, segmask_im
 
     def plan_grasp(self, req):
         """Grasp planner request handler.
@@ -167,19 +186,17 @@ class GraspPlanner(object):
         """
         self._subscribe_img_topic = False
         img_req = GQCNNGraspPlannerImgRequest()
-        try:
-            img_req.camera_info = self._camera_info
-            img_req.color_image = self._color_img
-            depth_img_mm = self.cv_bridge.imgmsg_to_cv2(self._depth_img, "32FC1")
-            img_req.depth_image = self.cv_bridge.cv2_to_imgmsg(depth_img_mm * 0.001, "32FC1")
-        except CvBridgeError as e:
-            print(e)
-            self._subscribe_img_topic = True
-            return False
+        img_req.camera_info = self._camera_info
+        img_req.color_image = self._color_img
+        img_req.depth_image = self._depth_img
 
-        color_im, depth_im, camera_intr = self.read_images(img_req)
-        result = self._plan_grasp(color_im, depth_im, camera_intr,
-                                  bounding_box=self._bounding_box)
+        color_im, depth_im, camera_intr, bb, segmask_im = self.read_images(img_req, self._bounding_box)
+        print('len(segmask_im.nonzero_pixels()) = {}'.format(len(segmask_im.nonzero_pixels())))
+        if len(segmask_im.nonzero_pixels()) < 100:
+            self._subscribe_img_topic = True
+            return None
+        result = self._plan_grasp(color_im, depth_im, camera_intr,segmask=segmask_im)
+
         o = result.pose.orientation
         q = np.quaternion(o.w, o.x, o.y, o.z)
         rot = qtn.as_rotation_matrix(q)
@@ -197,7 +214,7 @@ class GraspPlanner(object):
         req: :obj:`ROS ServiceRequest`
             ROS `ServiceRequest` for grasp planner service.
         """
-        color_im, depth_im, camera_intr = self.read_images(req)
+        color_im, depth_im, camera_intr, _, _ = self.read_images(req)
         return self._plan_grasp(color_im, depth_im, camera_intr)
 
     def plan_grasp_bb(self, req):
@@ -208,11 +225,11 @@ class GraspPlanner(object):
         req: :obj:`ROS ServiceRequest`
             `ROS ServiceRequest` for grasp planner service.
         """
-        color_im, depth_im, camera_intr = self.read_images(req)
+        color_im, depth_im, camera_intr, bb, _ = self.read_images(req, req.bounding_box)
         return self._plan_grasp(color_im,
                                 depth_im,
                                 camera_intr,
-                                bounding_box=req.bounding_box)
+                                bounding_box=bb)
 
     def plan_grasp_segmask(self, req):
         """Grasp planner request handler.
@@ -222,7 +239,7 @@ class GraspPlanner(object):
         req: :obj:`ROS ServiceRequest`
             ROS `ServiceRequest` for grasp planner service.
         """
-        color_im, depth_im, camera_intr = self.read_images(req)
+        color_im, depth_im, camera_intr, _, _ = self.read_images(req)
         raw_segmask = req.segmask
         try:
             segmask = BinaryImage(self.cv_bridge.imgmsg_to_cv2(
@@ -328,9 +345,12 @@ class GraspPlanner(object):
 
         # Execute policy.
         try:
-            return self.execute_policy(rgbd_state, self.grasping_policy,
+            result = self.execute_policy(rgbd_state, self.grasping_policy,
                                        self.grasp_pose_publisher,
                                        camera_intr.frame)
+            if self._crop_min is not None:
+                result.center_px = np.array(result.center_px) + self._crop_min
+            return result
         except NoValidGraspsException:
             rospy.logerr(
                 ("While executing policy found no valid grasps from sampled"
@@ -338,6 +358,7 @@ class GraspPlanner(object):
             raise rospy.ServiceException(
                 ("While executing policy found no valid grasps from sampled"
                  " antipodal point pairs. Aborting Policy!"))
+        
 
     def execute_policy(self, rgbd_image_state, grasping_policy,
                        grasp_pose_publisher, pose_frame):
@@ -358,7 +379,7 @@ class GraspPlanner(object):
         # Execute the policy"s action.
         grasp_planning_start_time = time.time()
         grasp = grasping_policy(rgbd_image_state)
-
+        print('type(grasp) = {}'.format(type(grasp)))
         # Create `GQCNNGrasp` return msg and populate it.
         gqcnn_grasp = GQCNNGrasp()
         gqcnn_grasp.q_value = grasp.q_value
@@ -408,15 +429,15 @@ class GraspPlanner(object):
 
     def set_bounding_box(self):
         self._color_img = None
-        rate = rospy.Rate(20)
+        rate = rospy.Rate(10)
         mouse_event = self.MouseEvent()
-        while self._color_img is None and not rospy.is_shutdown():
+        while (self._color_img is None or self._depth_img is None) and not rospy.is_shutdown():
             rate.sleep()
 
+        cv2.namedWindow('Area Bounding', cv2.WINDOW_AUTOSIZE)
+        cv2.setMouseCallback('Area Bounding', mouse_event.extract_coordinates)
         while not rospy.is_shutdown():
-            cv2.namedWindow('Area Bounding', cv2.WINDOW_AUTOSIZE)
-            cv2.setMouseCallback('Area Bounding', mouse_event.extract_coordinates)
-            bounding_img = self.cv_bridge.imgmsg_to_cv2(self._color_img, "rgb8")
+            bounding_img = self.cv_bridge.imgmsg_to_cv2(self._color_img, COLOR_IMG_TYPE)
             bbc = mouse_event.get_bbc()
             if len(bbc) == 2:
                 cv2.rectangle(bounding_img, bbc[0], bbc[1], (36,255,12), 2)
@@ -437,6 +458,72 @@ class GraspPlanner(object):
                 print('close without save')
                 return
             rate.sleep()
+
+    def create_depth_background(self):
+        depth_sum = self.cv_bridge.imgmsg_to_cv2(self._depth_img, DEPTH_IMG_TYPE)
+        rate = rospy.Rate(10)
+        for _ in range(9):
+            rate.sleep()
+            depth_sum += self.cv_bridge.imgmsg_to_cv2(self._depth_img, DEPTH_IMG_TYPE)
+        self._depth_bg = depth_sum / 10
+        self._depth_bg, _, _ = self.crop_img(self._depth_bg, self._bounding_box)
+
+    def create_segmask(self, depth_img, bb=None):
+        begin = rospy.Time.now()
+        if depth_img.shape != self._depth_bg.shape:
+            print('depth_img.shap = {}, self._depth_bg.shape = {}'.format(depth_img.shap, self._depth_bg.shape))
+            rospy.logerr('[create_segmask]: The shape of input img and depth background not match!')
+            return
+        segmask = ((depth_img - self._depth_bg) < -4).astype(np.uint8)
+        kernel = np.ones((5,5), np.uint8)
+        segmask = cv2.erode(segmask, kernel, iterations=2)
+        segmask = cv2.dilate(segmask, kernel, iterations=2)
+        if bb is not None:
+            bb_segmask = np.zeros([depth_img.shape[0], depth_img.shape[1]])
+            bb_segmask[int(bb.minY) : int(bb.maxY), int(bb.minX) : int(bb.maxX)] = 1
+            segmask = np.logical_and(segmask, bb_segmask).astype(np.uint8)
+        segmask = (255 * segmask).astype(np.uint8)
+        print('[create_segmask]: create_segmask time = {}'.format((rospy.Time.now() - begin).to_sec()))
+        return segmask
+
+    def crop_img(self, img, bb_in=None, camera_intr=None):
+        if bb_in is not None:
+            bb = np.array([bb_in.minX, bb_in.minY, bb_in.maxX, bb_in.maxY])
+            bb_resolution = [bb_in.maxX - bb_in.minX, bb_in.maxY - bb_in.minY]
+        else:
+            bb = np.array([0, 0, img.shape[1], img.shape[0]])
+            bb_resolution = [img.shape[1], img.shape[0]]
+        ratio = 1.0
+        if bb_resolution[0] > self.roi_width or bb_resolution[1] > self.roi_height:
+            if bb_resolution[0] / self.roi_width > bb_resolution[1] / self.roi_height:
+                ratio = float(self.roi_width) / float(bb_resolution[0])
+            else:
+                ratio = float(self.roi_height) / float(bb_resolution[1])
+            dim = (int(img.shape[1] * ratio), int(img.shape[0] * ratio))
+            img = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+            bb = bb * ratio
+            if camera_intr is not None:
+                camera_intr.K = np.array(camera_intr.K) * ratio
+                p = np.array(camera_intr.P).reshape(3, 4)
+                p[:3, :3] *= ratio
+                camera_intr.P = p.reshape(-1)
+        center = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2]
+        crop_min = [int(center[0] - self.roi_width / 2), int(center[1] - self.roi_height / 2)]
+        crop_max = [crop_min[0] + self.roi_width, crop_min[1] + self.roi_height]
+        img = img[crop_min[1] : crop_max[1], crop_min[0] : crop_max[0]]
+        bb[0::2] -= crop_min[0]
+        bb[1::2] -= crop_min[1]
+        if camera_intr is not None:
+            camera_intr.K = np.array(camera_intr.K)
+            camera_intr.P = np.array(camera_intr.P)
+            camera_intr.K[2] -= crop_min[0]
+            camera_intr.K[5] -= crop_min[1]
+            camera_intr.P[2] -= crop_min[0]
+            camera_intr.P[5] -= crop_min[1]
+        self._crop_min = np.array(crop_min)
+        print('[crop_img]: ratio = {}, center = {}, crop_min = {}, img.shape = {}'.format(ratio, center, crop_min, img.shape))
+        return img, BoundingBox(bb[0], bb[1], bb[2], bb[3]), camera_intr
+
     
     class MouseEvent(object):
         def __init__(self):
@@ -510,14 +597,6 @@ if __name__ == "__main__":
                 "Input data mode {} not supported!".format(input_data_mode))
 
     # Set config.
-    if fully_conv:
-        config_filename = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..",
-            "cfg/examples/ros/fc_gqcnn_suction.yaml")
-    else:
-        config_filename = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..",
-            "cfg/examples/ros/gqcnn_suction.yaml")
     if (gripper_mode == GripperMode.LEGACY_PARALLEL_JAW
             or gripper_mode == GripperMode.PARALLEL_JAW):
         if fully_conv:
@@ -528,6 +607,15 @@ if __name__ == "__main__":
             config_filename = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), "..",
                 "cfg/examples/ros/gqcnn_pj.yaml")
+    else:
+        if fully_conv:
+            config_filename = os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "..",
+                "cfg/examples/ros/fc_gqcnn_suction.yaml")
+        else:
+            config_filename = os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "..",
+                "cfg/examples/ros/gqcnn_suction.yaml")
 
     # Read config.
     cfg = YamlConfig(config_filename)
@@ -586,5 +674,21 @@ if __name__ == "__main__":
 
     rospy.loginfo("Grasping Policy Initialized")
     grasp_planner.set_bounding_box()
+    grasp_planner.create_depth_background()
+    rate = rospy.Rate(3)
+    while not rospy.is_shutdown():
+        rate.sleep()
+        depth_img = grasp_planner.cv_bridge.imgmsg_to_cv2(grasp_planner._depth_img, DEPTH_IMG_TYPE)
+        depth_img, bb, _ = grasp_planner.crop_img(depth_img, grasp_planner._bounding_box)
+        print('bb = {}'.format(bb))
+        segmask = grasp_planner.create_segmask(depth_img, bb)
+        cv2.namedWindow('Segmask show', cv2.WINDOW_AUTOSIZE)
+        cv2.imshow('Segmask show', segmask)
+        key = cv2.waitKey(10)
+        if key == ord('q'):
+            cv2.destroyAllWindows()
+            print('close segmask show')
+            break
+
     # Spin forever.
     rospy.spin()
