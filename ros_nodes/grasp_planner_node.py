@@ -53,7 +53,7 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import CameraInfo, Image
 
 from task_msgs.srv import (GQCNNGraspPlanner, GQCNNGraspPlannerImg, GQCNNGraspPlannerImgRequest, GQCNNGraspPlannerBoundingBox,
-                       GQCNNGraspPlannerSegmask)
+                       GQCNNGraspPlannerSegmask, GQCNNGraspPlannerResponse)
 from task_msgs.msg import GQCNNGrasp, BoundingBox
 
 DEPTH_IMG_TYPE = '32FC1'
@@ -194,7 +194,9 @@ class GraspPlanner(object):
         print('len(segmask_im.nonzero_pixels()) = {}'.format(len(segmask_im.nonzero_pixels())))
         if len(segmask_im.nonzero_pixels()) < 100:
             self._subscribe_img_topic = True
-            return None
+            result = GQCNNGraspPlannerResponse()
+            result.grasp.q_value = 0
+            return result
         result = self._plan_grasp(color_im, depth_im, camera_intr,segmask=segmask_im)
 
         o = result.pose.orientation
