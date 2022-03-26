@@ -511,7 +511,12 @@ class GraspPlanner(object):
                 camera_intr.P = p.reshape(-1)
         center = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2]
         crop_min = [int(center[0] - self.roi_width / 2), int(center[1] - self.roi_height / 2)]
+        if crop_min[0] < 0 or crop_min[1] < 0:
+            crop_min = [0 if vel < 0 else vel for vel in crop_min]
         crop_max = [crop_min[0] + self.roi_width, crop_min[1] + self.roi_height]
+        if crop_max[0] > img.shape[1] or crop_max[1] > img.shape[0]:
+            crop_max[0], crop_max[1] = img.shape[1], img.shape[0]
+            crop_min = [crop_max[0] - self.roi_width, crop_max[1] - self.roi_height]
         img = img[crop_min[1] : crop_max[1], crop_min[0] : crop_max[0]]
         bb[0::2] -= crop_min[0]
         bb[1::2] -= crop_min[1]
