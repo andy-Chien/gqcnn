@@ -2,6 +2,7 @@ autolab-core
 autolab-perception
 visualization
 numpy
+numpy-quaternion
 opencv-python
 scipy
 matplotlib
@@ -9,6 +10,3 @@ scikit-learn
 scikit-image
 gputil
 psutil
-Pillow==8.3.2
-tifffile==2021.11.2
-imageio==2.14.1
