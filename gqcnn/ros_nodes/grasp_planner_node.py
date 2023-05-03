@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Copyright ©2017. The Regents of the University of California (Regents).
@@ -36,23 +36,25 @@ import time
 
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
-import rospy
+# import rospy
+import rclpy
+from rclpy.node import Node
 
 from autolab_core import (YamlConfig, CameraIntrinsics, ColorImage,
                           DepthImage, BinaryImage, RgbdImage)
 from visualization import Visualizer2D as vis
-from gqcnn.grasping import (Grasp2D, SuctionPoint2D, RgbdImageState,
+from gqcnn_lib.grasping import (Grasp2D, SuctionPoint2D, RgbdImageState,
                             RobustGraspingPolicy,
                             CrossEntropyRobustGraspingPolicy,
                             FullyConvolutionalGraspingPolicyParallelJaw,
                             FullyConvolutionalGraspingPolicySuction)
-from gqcnn.utils import GripperMode, NoValidGraspsException
+from gqcnn_lib.utils import GripperMode, NoValidGraspsException
 
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Header
-from gqcnn.srv import (GQCNNGraspPlanner, GQCNNGraspPlannerBoundingBox,
+from gqcnn_interfaces.srv import (GQCNNGraspPlanner, GQCNNGraspPlannerBoundingBox,
                        GQCNNGraspPlannerSegmask)
-from gqcnn.msg import GQCNNGrasp
+from gqcnn_interfaces.msg import GQCNNGrasp
 
 
 class GraspPlanner(object):
@@ -74,6 +76,7 @@ class GraspPlanner(object):
         self.cv_bridge = cv_bridge
         self.grasping_policy = grasping_policy
         self.grasp_pose_publisher = grasp_pose_publisher
+        self._node = node
 
         # Set minimum input dimensions.
         policy_type = "cem"
@@ -130,7 +133,7 @@ class GraspPlanner(object):
                 raw_depth, desired_encoding="passthrough"),
                                   frame=camera_intr.frame)
         except CvBridgeError as cv_bridge_exception:
-            rospy.logerr(cv_bridge_exception)
+            self.get_logger().info(cv_bridge_exception)
 
         # Check image sizes.
         if color_im.height != depth_im.height or \
@@ -139,8 +142,8 @@ class GraspPlanner(object):
                    " is %d x %d but depth is %d x %d") % (
                        color_im.height, color_im.width, depth_im.height,
                        depth_im.width)
-            rospy.logerr(msg)
-            raise rospy.ServiceException(msg)
+            self._node.get_logger().info(msg)
+            raise rclpy.exceptions.TimeoutException(msg)
 
         if (color_im.height < self.min_height
                 or color_im.width < self.min_width):
@@ -148,8 +151,8 @@ class GraspPlanner(object):
                    " resolution but the requested image is only %d x %d") % (
                        self.min_height, self.min_width, color_im.height,
                        color_im.width)
-            rospy.logerr(msg)
-            raise rospy.ServiceException(msg)
+            self._node.get_logger().info(msg)
+            raise rclpy.exceptions.TimeoutException(msg)
 
         return color_im, depth_im, camera_intr
 
@@ -193,15 +196,15 @@ class GraspPlanner(object):
                 raw_segmask, desired_encoding="passthrough"),
                                   frame=camera_intr.frame)
         except CvBridgeError as cv_bridge_exception:
-            rospy.logerr(cv_bridge_exception)
+            self._node.get_logger().info(cv_bridge_exception)
         if color_im.height != segmask.height or \
            color_im.width != segmask.width:
             msg = ("Images and segmask must be the same shape! Color image is"
                    " %d x %d but segmask is %d x %d") % (
                        color_im.height, color_im.width, segmask.height,
                        segmask.width)
-            rospy.logerr(msg)
-            raise rospy.ServiceException(msg)
+            self._node.get_logger().info(msg)
+            raise rclpy.exceptions.TimeoutException(msg)
 
         return self._plan_grasp(color_im,
                                 depth_im,
@@ -221,7 +224,7 @@ class GraspPlanner(object):
         req: :obj:`ROS ServiceRequest`
             ROS `ServiceRequest` for grasp planner service.
         """
-        rospy.loginfo("Planning Grasp")
+        self._node.get_logger("Planning Grasp")
 
         # Inpaint images.
         color_im = color_im.inpaint(
@@ -253,10 +256,10 @@ class GraspPlanner(object):
         # Mask bounding box.
         if bounding_box is not None:
             # Calc bb parameters.
-            min_x = bounding_box.minX
-            min_y = bounding_box.minY
-            max_x = bounding_box.maxX
-            max_y = bounding_box.maxY
+            min_x = bounding_box.xmin
+            min_y = bounding_box.ymin
+            max_x = bounding_box.xmax
+            max_y = bounding_box.ymax
 
             # Contain box to image->don't let it exceed image height/width
             # bounds.
@@ -296,10 +299,10 @@ class GraspPlanner(object):
                                        self.grasp_pose_publisher,
                                        camera_intr.frame)
         except NoValidGraspsException:
-            rospy.logerr(
+            self._node.get_logger(
                 ("While executing policy found no valid grasps from sampled"
                  " antipodal point pairs. Aborting Policy!"))
-            raise rospy.ServiceException(
+            raise rclpy.exceptions.TimeoutException(
                 ("While executing policy found no valid grasps from sampled"
                  " antipodal point pairs. Aborting Policy!"))
 
@@ -332,8 +335,8 @@ class GraspPlanner(object):
         elif isinstance(grasp.grasp, SuctionPoint2D):
             gqcnn_grasp.grasp_type = GQCNNGrasp.SUCTION
         else:
-            rospy.logerr("Grasp type not supported!")
-            raise rospy.ServiceException("Grasp type not supported!")
+            self._node.get_logger("Grasp type not supported!")
+            raise rclpy.exceptions.TimeoutException("Grasp type not supported!")
 
         # Store grasp representation in image space.
         gqcnn_grasp.center_px[0] = grasp.grasp.center[0]
@@ -347,29 +350,33 @@ class GraspPlanner(object):
         pose_stamped = PoseStamped()
         pose_stamped.pose = grasp.grasp.pose().pose_msg
         header = Header()
-        header.stamp = rospy.Time.now()
+        header.stamp = self._node.get_clock().now()
         header.frame_id = pose_frame
         pose_stamped.header = header
         grasp_pose_publisher.publish(pose_stamped)
 
         # Return `GQCNNGrasp` msg.
-        rospy.loginfo("Total grasp planning time: " +
+        self._node.get_logger("Total grasp planning time: " +
                       str(time.time() - grasp_planning_start_time) + " secs.")
 
         return gqcnn_grasp
 
+# def getParameter():
+#     pass
 
-if __name__ == "__main__":
+def main(args=None):
     # Initialize the ROS node.
-    rospy.init_node("Grasp_Sampler_Server")
+    rclpy.init(args=args)
+    node = rclpy.create_node('Grasp_Sampler_Server')
 
     # Initialize `CvBridge`.
     cv_bridge = CvBridge()
 
     # Get configs.
-    model_name = rospy.get_param("~model_name")
-    model_dir = rospy.get_param("~model_dir")
-    fully_conv = rospy.get_param("~fully_conv")
+    namespace = node.get_parameter('namespace')
+    model_name = node.get_parameter('model_name.version')
+    model_dir = node.get_parameter('model_dir')
+    fully_conv = node.get_parameter('fully_conv')
     if model_dir.lower() == "default":
         model_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                  "../models")
@@ -421,12 +428,12 @@ if __name__ == "__main__":
     policy_cfg["metric"]["gqcnn_model"] = model_dir
 
     # Create publisher to publish pose of final grasp.
-    grasp_pose_publisher = rospy.Publisher("/gqcnn_grasp/pose",
-                                           PoseStamped,
-                                           queue_size=10)
+    grasp_pose_publisher = node.create_publisher(PoseStamped,
+                                           "/gqcnn_grasp/pose",
+                                           10)
 
     # Create a grasping policy.
-    rospy.loginfo("Creating Grasping Policy")
+    node.get_logger("Creating Grasping Policy")
     if fully_conv:
         # TODO(vsatish): We should really be doing this in some factory policy.
         if policy_cfg["type"] == "fully_conv_suction":
@@ -452,18 +459,21 @@ if __name__ == "__main__":
 
     # Create a grasp planner.
     grasp_planner = GraspPlanner(cfg, cv_bridge, grasping_policy,
-                                 grasp_pose_publisher)
+                                 grasp_pose_publisher, node)
 
     # Initialize the ROS service.
-    grasp_planning_service = rospy.Service("grasp_planner", GQCNNGraspPlanner,
+    grasp_planning_service = node.create_service(GQCNNGraspPlanner, "grasp_planner", 
                                            grasp_planner.plan_grasp)
-    grasp_planning_service_bb = rospy.Service("grasp_planner_bounding_box",
-                                              GQCNNGraspPlannerBoundingBox,
+    grasp_planning_service_bb = node.create_service(GQCNNGraspPlannerBoundingBox,
+                                              "grasp_planner_bounding_box",
                                               grasp_planner.plan_grasp_bb)
-    grasp_planning_service_segmask = rospy.Service(
-        "grasp_planner_segmask", GQCNNGraspPlannerSegmask,
+    grasp_planning_service_segmask = node.create_servic(
+        GQCNNGraspPlannerSegmask, "grasp_planner_segmask", 
         grasp_planner.plan_grasp_segmask)
-    rospy.loginfo("Grasping Policy Initialized")
+    node.get_logger("Grasping Policy Initialized")
 
     # Spin forever.
-    rospy.spin()
+    rclpy.spin(node)
+
+if __name__ == "__main__":
+    main()

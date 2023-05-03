@@ -39,7 +39,7 @@ import time
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.framework as tcf
+import tensorflow.train as tcf
 
 from autolab_core import Logger
 from ...utils import (reduce_shape, read_pose_data, pose_dim,
