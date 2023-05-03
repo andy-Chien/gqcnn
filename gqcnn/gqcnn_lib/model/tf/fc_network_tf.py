@@ -150,13 +150,17 @@ class FCGQCNNTF(GQCNNTF):
             "Converting fc layer {} to fully convolutional...".format(fc_name))
 
         # Create new set of weights by reshaping fully connected layer weights.
+
         fcW = self._weights.weights["{}_weights".format(fc_name)]
+        # tf.compat.v1.global_variables_initializer()
+        # tf.compat.v1.disable_eager_execution()
         convW = tf.Variable(tf.reshape(
             fcW,
             tf.concat([[filter_dim, filter_dim],
                        [tf.shape(fcW)[0] // (filter_dim * filter_dim)],
                        tf.shape(fcW)[1:]], 0)),
                             name="{}_fully_conv_weights".format(fc_name))
+        
         self._weights.weights["{}_fully_conv_weights".format(fc_name)] = convW
 
         # Get bias.
@@ -265,7 +269,7 @@ class FCGQCNNTF(GQCNNTF):
                 tf.tile(
                     tf.reshape(input_pose_node, tf.constant((-1, 1, 1, 1))),
                     tf.constant((1, input_height, input_width, 1))))
-            norm_sub_im = tf.div(tf.subtract(sub_im, sub_mean), sub_std)
+            norm_sub_im = tf.compat.v1.div(tf.subtract(sub_im, sub_mean), sub_std)
             input_node = norm_sub_im
 
         output_node = input_node

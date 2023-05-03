@@ -20,9 +20,13 @@
 # HEREUNDER IS PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE
 # MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.8)
 project(gqcnn)
-set(CMAKE_CXX_STANDARD 17)
+# set(CMAKE_CXX_STANDARD 17)
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -44,6 +48,7 @@ ament_python_install_package(gqcnn_lib)
 # Install Python executables
 install(PROGRAMS
 ros_nodes/grasp_planner_node.py
+examples/policy_ros2.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -59,6 +64,10 @@ ament_export_libraries(${library_name})
 ament_export_dependencies(${dependencies})
 
 install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME}/)
+
+install(DIRECTORY models cfg DESTINATION share/${PROJECT_NAME}/)
+
+install(DIRECTORY data DESTINATION share/${PROJECT_NAME}/)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

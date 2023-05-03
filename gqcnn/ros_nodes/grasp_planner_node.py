@@ -38,7 +38,7 @@ from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 # import rospy
 import rclpy
-from rclpy.node import Node
+from ament_index_python.packages import get_package_share_directory
 
 from autolab_core import (YamlConfig, CameraIntrinsics, ColorImage,
                           DepthImage, BinaryImage, RgbdImage)
@@ -59,7 +59,7 @@ from gqcnn_interfaces.msg import GQCNNGrasp
 
 class GraspPlanner(object):
 
-    def __init__(self, cfg, cv_bridge, grasping_policy, grasp_pose_publisher):
+    def __init__(self, cfg, cv_bridge, grasping_policy, grasp_pose_publisher,node):
         """
         Parameters
         ----------
@@ -118,9 +118,9 @@ class GraspPlanner(object):
         # Wrap the camera info in a BerkeleyAutomation/autolab_core
         # `CameraIntrinsics` object.
         camera_intr = CameraIntrinsics(
-            raw_camera_info.header.frame_id, raw_camera_info.K[0],
-            raw_camera_info.K[4], raw_camera_info.K[2], raw_camera_info.K[5],
-            raw_camera_info.K[1], raw_camera_info.height,
+            raw_camera_info.header.frame_id, raw_camera_info.k[0],
+            raw_camera_info.k[4], raw_camera_info.k[2], raw_camera_info.k[5],
+            raw_camera_info.k[1], raw_camera_info.height,
             raw_camera_info.width)
 
         # Create wrapped BerkeleyAutomation/autolab_core RGB and depth images
@@ -156,7 +156,7 @@ class GraspPlanner(object):
 
         return color_im, depth_im, camera_intr
 
-    def plan_grasp(self, req):
+    def plan_grasp(self, req, res):
         """Grasp planner request handler.
 
         Parameters
@@ -165,9 +165,10 @@ class GraspPlanner(object):
             ROS `ServiceRequest` for grasp planner service.
         """
         color_im, depth_im, camera_intr = self.read_images(req)
-        return self._plan_grasp(color_im, depth_im, camera_intr)
+        res.grasp = self._plan_grasp(color_im, depth_im, camera_intr)
+        return res
 
-    def plan_grasp_bb(self, req):
+    def plan_grasp_bb(self, req, res):
         """Grasp planner request handler.
 
         Parameters
@@ -181,7 +182,7 @@ class GraspPlanner(object):
                                 camera_intr,
                                 bounding_box=req.bounding_box)
 
-    def plan_grasp_segmask(self, req):
+    def plan_grasp_segmask(self, req, res):
         """Grasp planner request handler.
 
         Parameters
@@ -224,7 +225,7 @@ class GraspPlanner(object):
         req: :obj:`ROS ServiceRequest`
             ROS `ServiceRequest` for grasp planner service.
         """
-        self._node.get_logger("Planning Grasp")
+        self._node.get_logger().info("Planning Grasp")
 
         # Inpaint images.
         color_im = color_im.inpaint(
@@ -299,7 +300,7 @@ class GraspPlanner(object):
                                        self.grasp_pose_publisher,
                                        camera_intr.frame)
         except NoValidGraspsException:
-            self._node.get_logger(
+            self._node.get_logger().info(
                 ("While executing policy found no valid grasps from sampled"
                  " antipodal point pairs. Aborting Policy!"))
             raise rclpy.exceptions.TimeoutException(
@@ -335,14 +336,14 @@ class GraspPlanner(object):
         elif isinstance(grasp.grasp, SuctionPoint2D):
             gqcnn_grasp.grasp_type = GQCNNGrasp.SUCTION
         else:
-            self._node.get_logger("Grasp type not supported!")
+            self._node.get_logger().info("Grasp type not supported!")
             raise rclpy.exceptions.TimeoutException("Grasp type not supported!")
 
         # Store grasp representation in image space.
         gqcnn_grasp.center_px[0] = grasp.grasp.center[0]
         gqcnn_grasp.center_px[1] = grasp.grasp.center[1]
         gqcnn_grasp.angle = grasp.grasp.angle
-        gqcnn_grasp.depth = grasp.grasp.depth
+        gqcnn_grasp.depth = float(grasp.grasp.depth)
         gqcnn_grasp.thumbnail = grasp.image.rosmsg
 
         # Create and publish the pose alone for easy visualization of grasp
@@ -350,13 +351,13 @@ class GraspPlanner(object):
         pose_stamped = PoseStamped()
         pose_stamped.pose = grasp.grasp.pose().pose_msg
         header = Header()
-        header.stamp = self._node.get_clock().now()
+        header.stamp = self._node.get_clock().now().to_msg()
         header.frame_id = pose_frame
         pose_stamped.header = header
         grasp_pose_publisher.publish(pose_stamped)
 
         # Return `GQCNNGrasp` msg.
-        self._node.get_logger("Total grasp planning time: " +
+        self._node.get_logger().info("Total grasp planning time: " +
                       str(time.time() - grasp_planning_start_time) + " secs.")
 
         return gqcnn_grasp
@@ -371,15 +372,22 @@ def main(args=None):
 
     # Initialize `CvBridge`.
     cv_bridge = CvBridge()
+    gqcnn_ros_share_dir = get_package_share_directory('gqcnn')
 
     # Get configs.
-    namespace = node.get_parameter('namespace')
-    model_name = node.get_parameter('model_name.version')
-    model_dir = node.get_parameter('model_dir')
-    fully_conv = node.get_parameter('fully_conv')
+    node.declare_parameter('model_name.version', 'FC-GQCNN-4.0-SUCTION')
+    node.declare_parameter('model_dir', 'default')
+    node.declare_parameter('fully_conv', False)
+    model_name = node.get_parameter('model_name.version').get_parameter_value().string_value
+    model_dir = node.get_parameter('model_dir').get_parameter_value().string_value
+    fully_conv = node.get_parameter('fully_conv').get_parameter_value().bool_value
+    print(model_name)
+    print(model_dir)
+    print(fully_conv)
     if model_dir.lower() == "default":
-        model_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                 "../models")
+        # model_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+        #                          "/models")
+        model_dir = gqcnn_ros_share_dir + '/models/'
     model_dir = os.path.join(model_dir, model_name)
     model_config = json.load(open(os.path.join(model_dir, "config.json"), "r"))
     try:
@@ -405,22 +413,22 @@ def main(args=None):
     # Set config.
     if fully_conv:
         config_filename = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..",
-            "cfg/examples/ros/fc_gqcnn_suction.yaml")
+            gqcnn_ros_share_dir +
+            "/cfg/examples/ros/fc_gqcnn_suction.yaml")
     else:
         config_filename = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..",
-            "cfg/examples/ros/gqcnn_suction.yaml")
+            gqcnn_ros_share_dir +
+            "/cfg/examples/ros/gqcnn_suction.yaml")
     if (gripper_mode == GripperMode.LEGACY_PARALLEL_JAW
             or gripper_mode == GripperMode.PARALLEL_JAW):
         if fully_conv:
             config_filename = os.path.join(
-                os.path.dirname(os.path.realpath(__file__)), "..",
-                "cfg/examples/ros/fc_gqcnn_pj.yaml")
+                gqcnn_ros_share_dir +
+                "/cfg/examples/ros/fc_gqcnn_pj.yaml")
         else:
             config_filename = os.path.join(
-                os.path.dirname(os.path.realpath(__file__)), "..",
-                "cfg/examples/ros/gqcnn_pj.yaml")
+                gqcnn_ros_share_dir +
+                "/cfg/examples/ros/gqcnn_pj.yaml")
 
     # Read config.
     cfg = YamlConfig(config_filename)
@@ -433,7 +441,7 @@ def main(args=None):
                                            10)
 
     # Create a grasping policy.
-    node.get_logger("Creating Grasping Policy")
+    node.get_logger().info("Creating Grasping Policy")
     if fully_conv:
         # TODO(vsatish): We should really be doing this in some factory policy.
         if policy_cfg["type"] == "fully_conv_suction":
@@ -467,13 +475,15 @@ def main(args=None):
     grasp_planning_service_bb = node.create_service(GQCNNGraspPlannerBoundingBox,
                                               "grasp_planner_bounding_box",
                                               grasp_planner.plan_grasp_bb)
-    grasp_planning_service_segmask = node.create_servic(
+    grasp_planning_service_segmask = node.create_service(
         GQCNNGraspPlannerSegmask, "grasp_planner_segmask", 
         grasp_planner.plan_grasp_segmask)
-    node.get_logger("Grasping Policy Initialized")
+    node.get_logger().info("Grasping Policy Initialized")
 
     # Spin forever.
     rclpy.spin(node)
+
+    rclpy.shutdown()
 
 if __name__ == "__main__":
     main()

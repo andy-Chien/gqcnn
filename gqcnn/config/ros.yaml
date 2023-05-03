@@ -1,6 +1,5 @@
 gqcnn:
   ros__parameters:
-    namespace: gqcnn
     model_name: 
       version: GQCNN-2.0
     model_dir: default
