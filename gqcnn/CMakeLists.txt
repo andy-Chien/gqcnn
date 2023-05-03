@@ -43,7 +43,7 @@ include_directories(
 
  
 # Install Python modules
-ament_python_install_package(gqcnn_lib)
+ament_python_install_package(gqcnn)
  
 # Install Python executables
 install(PROGRAMS

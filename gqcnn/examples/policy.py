@@ -42,11 +42,11 @@ from autolab_core import (YamlConfig, Logger, BinaryImage, CameraIntrinsics,
                           ColorImage, DepthImage, RgbdImage)
 from visualization import Visualizer2D as vis
 
-from gqcnn_lib.grasping import (RobustGraspingPolicy,
+from gqcnn.grasping import (RobustGraspingPolicy,
                             CrossEntropyRobustGraspingPolicy, RgbdImageState,
                             FullyConvolutionalGraspingPolicyParallelJaw,
                             FullyConvolutionalGraspingPolicySuction)
-from gqcnn_lib.utils import GripperMode
+from gqcnn.utils import GripperMode
 
 # Set up logger.
 logger = Logger.get_logger("examples/policy.py")

@@ -46,7 +46,7 @@ from autolab_core import (Point, Logger, BinaryImage, CameraIntrinsics,
                           ColorImage, DepthImage)
 from visualization import Visualizer2D as vis
 
-from gqcnn_lib.grasping import Grasp2D, SuctionPoint2D, GraspAction
+from gqcnn.grasping import Grasp2D, SuctionPoint2D, GraspAction
 from gqcnn_interfaces.msg import GQCNNGrasp
 from gqcnn_interfaces.srv import GQCNNGraspPlanner, GQCNNGraspPlannerSegmask
 

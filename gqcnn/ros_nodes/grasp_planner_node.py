@@ -43,12 +43,12 @@ from ament_index_python.packages import get_package_share_directory
 from autolab_core import (YamlConfig, CameraIntrinsics, ColorImage,
                           DepthImage, BinaryImage, RgbdImage)
 from visualization import Visualizer2D as vis
-from gqcnn_lib.grasping import (Grasp2D, SuctionPoint2D, RgbdImageState,
+from gqcnn.grasping import (Grasp2D, SuctionPoint2D, RgbdImageState,
                             RobustGraspingPolicy,
                             CrossEntropyRobustGraspingPolicy,
                             FullyConvolutionalGraspingPolicyParallelJaw,
                             FullyConvolutionalGraspingPolicySuction)
-from gqcnn_lib.utils import GripperMode, NoValidGraspsException
+from gqcnn.utils import GripperMode, NoValidGraspsException
 
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Header
@@ -177,10 +177,11 @@ class GraspPlanner(object):
             `ROS ServiceRequest` for grasp planner service.
         """
         color_im, depth_im, camera_intr = self.read_images(req)
-        return self._plan_grasp(color_im,
+        res.grasp = self._plan_grasp(color_im,
                                 depth_im,
                                 camera_intr,
                                 bounding_box=req.bounding_box)
+        return res
 
     def plan_grasp_segmask(self, req, res):
         """Grasp planner request handler.
@@ -207,10 +208,11 @@ class GraspPlanner(object):
             self._node.get_logger().info(msg)
             raise rclpy.exceptions.TimeoutException(msg)
 
-        return self._plan_grasp(color_im,
+        res.grasp = self._plan_grasp(color_im,
                                 depth_im,
                                 camera_intr,
                                 segmask=segmask)
+        return res
 
     def _plan_grasp(self,
                     color_im,

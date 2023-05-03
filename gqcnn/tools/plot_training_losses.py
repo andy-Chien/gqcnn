@@ -41,7 +41,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from autolab_core import Logger
-from gqcnn_lib.utils import GeneralConstants, GQCNNFilenames
+from gqcnn.utils import GeneralConstants, GQCNNFilenames
 
 # Set up logger.
 logger = Logger.get_logger("tools/plot_training_losses.py")
