@@ -344,7 +344,7 @@ class GraspPlanner(object):
         # Store grasp representation in image space.
         gqcnn_grasp.center_px[0] = grasp.grasp.center[0]
         gqcnn_grasp.center_px[1] = grasp.grasp.center[1]
-        gqcnn_grasp.angle = grasp.grasp.angle
+        gqcnn_grasp.angle = float(grasp.grasp.angle)
         gqcnn_grasp.depth = float(grasp.grasp.depth)
         gqcnn_grasp.thumbnail = grasp.image.rosmsg
 
