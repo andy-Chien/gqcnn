@@ -25,15 +25,15 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
 
 ## Installation and Usage with docker
 
-1.clone docker to your <workspace_ws>
+1.clone docker to your <workspace_ws>.
     ```shell
     git clone https://github.com/errrr0501/docker_20.04_CUDA12_tf1.15
     ```
     
-2.build it and run it
+2.build it and run it.
 
 
-3.clone and build realsense_ros2_wrapper
+3.clone and build realsense_ros2_wrapper.
     ```shell
     #open a new terminal
     mkdir <your realsense workspace>
@@ -42,7 +42,7 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
     colcon build
     ```
 
-4.make a workspace and clone gqcnn and autolab_core
+4.make a workspace and clone gqcnn and autolab_core.
     ```shell
     #open a new terminal
     mkdir <your gqcnn workspace>
@@ -52,7 +52,7 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
     colcon build
     ```
     
-5.use with your camera topic
+5.use with your camera topic.
     ```shell
     #open a new terminal
     cd <your realsense workspace>
