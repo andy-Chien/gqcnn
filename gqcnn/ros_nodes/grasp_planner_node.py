@@ -34,6 +34,7 @@ import math
 import os
 import time
 
+import cv2
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 # import rospy
@@ -129,11 +130,14 @@ class GraspPlanner(object):
             color_im = ColorImage(self.cv_bridge.imgmsg_to_cv2(
                 raw_color, "rgb8"),
                                   frame=camera_intr.frame)
+
             depth_im = DepthImage(self.cv_bridge.imgmsg_to_cv2(
                 raw_depth, desired_encoding="passthrough"),
                                   frame=camera_intr.frame)
+
+            print(depth_im.data)
         except CvBridgeError as cv_bridge_exception:
-            self.get_logger().info(cv_bridge_exception)
+            self._node.get_logger().info(cv_bridge_exception)
 
         # Check image sizes.
         if color_im.height != depth_im.height or \
@@ -143,7 +147,7 @@ class GraspPlanner(object):
                        color_im.height, color_im.width, depth_im.height,
                        depth_im.width)
             self._node.get_logger().info(msg)
-            raise rclpy.exceptions.TimeoutException(msg)
+            # raise rclpy.exceptions.TimeoutException(msg)
 
         if (color_im.height < self.min_height
                 or color_im.width < self.min_width):
@@ -152,8 +156,7 @@ class GraspPlanner(object):
                        self.min_height, self.min_width, color_im.height,
                        color_im.width)
             self._node.get_logger().info(msg)
-            raise rclpy.exceptions.TimeoutException(msg)
-
+            # raise rclpy.exceptions.TimeoutException(msg)
         return color_im, depth_im, camera_intr
 
     def plan_grasp(self, req, res):
@@ -206,7 +209,7 @@ class GraspPlanner(object):
                        color_im.height, color_im.width, segmask.height,
                        segmask.width)
             self._node.get_logger().info(msg)
-            raise rclpy.exceptions.TimeoutException(msg)
+            # raise rclpy.exceptions.TimeoutException(msg)
 
         res.grasp = self._plan_grasp(color_im,
                                 depth_im,
@@ -305,9 +308,9 @@ class GraspPlanner(object):
             self._node.get_logger().info(
                 ("While executing policy found no valid grasps from sampled"
                  " antipodal point pairs. Aborting Policy!"))
-            raise rclpy.exceptions.TimeoutException(
-                ("While executing policy found no valid grasps from sampled"
-                 " antipodal point pairs. Aborting Policy!"))
+            # raise rclpy.exceptions.TimeoutException(
+            #     ("While executing policy found no valid grasps from sampled"
+            #      " antipodal point pairs. Aborting Policy!"))
 
     def execute_policy(self, rgbd_image_state, grasping_policy,
                        grasp_pose_publisher, pose_frame):
@@ -339,7 +342,7 @@ class GraspPlanner(object):
             gqcnn_grasp.grasp_type = GQCNNGrasp.SUCTION
         else:
             self._node.get_logger().info("Grasp type not supported!")
-            raise rclpy.exceptions.TimeoutException("Grasp type not supported!")
+            # raise rclpy.exceptions.TimeoutException("Grasp type not supported!")
 
         # Store grasp representation in image space.
         gqcnn_grasp.center_px[0] = grasp.grasp.center[0]
@@ -377,9 +380,9 @@ def main(args=None):
     gqcnn_ros_share_dir = get_package_share_directory('gqcnn')
 
     # Get configs.
-    node.declare_parameter('model_name.version', 'FC-GQCNN-4.0-SUCTION')
+    node.declare_parameter('model_name.version', 'FC-GQCNN-4.0-PJ')
     node.declare_parameter('model_dir', 'default')
-    node.declare_parameter('fully_conv', False)
+    node.declare_parameter('fully_conv', True)
     model_name = node.get_parameter('model_name.version').get_parameter_value().string_value
     model_dir = node.get_parameter('model_dir').get_parameter_value().string_value
     fully_conv = node.get_parameter('fully_conv').get_parameter_value().bool_value

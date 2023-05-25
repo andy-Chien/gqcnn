@@ -53,37 +53,51 @@ from gqcnn_interfaces.msg import GQCNNGrasp
 from gqcnn_interfaces.srv import GQCNNGraspPlanner, GQCNNGraspPlannerSegmask
 from sensor_msgs.msg import CameraInfo, Image
 
+import time
 # Set up logger.
 logger = Logger.get_logger("examples/policy_camera_ros2.py")
 
 
-class depth_image_subscriber(Node):
+class image_subscriber(Node):
 
     def __init__(self):
         super().__init__("depth_image_Subscriber")
         depth_camera_info_topic_ = '/camera/depth/camera_info'
-        depth_image_topic_ = '/camera/depth/image_rect_raw'
+        color_image_topic_ = '/camera/color/image_raw'
+        depth_image_topic_ = '/camera/aligned_depth_to_color/image_raw'
         self.bridge = CvBridge()
         # color_camera_info_subscriber_ = node.create_subscription(CameraInfo, color_camera_info_topic_, color_camera_Info_callback, 10)
         self.depth_camera_info_subscriber_ = self.create_subscription(CameraInfo, depth_camera_info_topic_,
                                                                   self.depth_camera_Info_callback, 10)
+        self.depth_image_subscriber_ = self.create_subscription(Image, color_image_topic_, 
+                                                           self.color_image_Info_callback, 10)
         self.depth_image_subscriber_ = self.create_subscription(Image, depth_image_topic_, 
                                                            self.depth_image_Info_callback, 10)
 
-        # self.depth_camera_info_subscriber_  # prevent unused variable warning
         self.info_received = False
-        self.image_received = False
+        self.color_image_received = False
+        self.depth_image_received = False
 
 
-    def depth_camera_Info_callback(self, msg):
-        self.depth_camera_msg = msg
+    def depth_camera_Info_callback(self, data):
+        self.depth_camera_info = data
         self.info_received = True
 
-    def depth_image_Info_callback(self, msg):
-        depth_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
-        self.depth_im = cv2.normalize(depth_image, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U).astype(np.float64)
-        # self.depth_im = np.array(msg.data, dtype=np.uint8)
-        self.image_received = True
+
+    def color_image_Info_callback(self, data):
+
+        color_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        color_image = cv2.resize(color_image, (516, 386))
+        color_imagemm = self.bridge.cv2_to_imgmsg(color_image,"bgr8")
+        self.color_im = color_imagemm
+        self.color_image_received = True
+
+
+    def depth_image_Info_callback(self, data):
+        depth_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='32FC1')
+        depth_image = cv2.resize(depth_image*0.001, (516, 386))
+        self.depth_im = depth_image
+        self.depth_image_received = True
 
 
 def main(args=None):
@@ -122,36 +136,20 @@ def main(args=None):
     gripper_width = args.gripper_width
     namespace = args.namespace
     vis_grasp = args.vis_grasp
-
+    namespace = "gqcnn"
     # Initialize the ROS node.
     rclpy.init(args=None)
     node = rclpy.create_node('grasp_planning_example')
-    depth_image_subscription = depth_image_subscriber()
+    image_subscription = image_subscriber()
 
-    while rclpy.ok() and not depth_image_subscription.info_received or not depth_image_subscription.image_received:
-        rclpy.spin_once(depth_image_subscription)
-    # logging.getLogger().addHandler(rl.RosStreamHandler())
+    while rclpy.ok() and not image_subscription.info_received or not image_subscription.color_image_received or not image_subscription.depth_image_received:
+        rclpy.spin_once(image_subscription)
+    print("----------------")
 
     # Setup filenames.
 
     gqcnn_ros_share_dir = get_package_share_directory('gqcnn')
-    # if depth_im_filename is None:
-    #     # depth_im_filename = os.path.join(
-    #     #     os.path.dirname(os.path.realpath(__file__)), "..",
-    #     #     "data/examples/single_object/primesense/depth_0.npy")
-    #     depth_im_filename =  gqcnn_ros_share_dir + "/data/examples/single_object/primesense/depth_0.npy"
-    # if camera_intr_filename is None:
-    #     # camera_intr_filename = os.path.join(
-    #     #     os.path.dirname(os.path.realpath(__file__)), "..",
-    #     #     "data/calib/primesense/primesense.intr")
-    #     camera_intr_filename =  gqcnn_ros_share_dir + "/data/calib/primesense/primesense.intr"
-    # Wait for grasp planning service and create service proxy.
 
-    
-    # plan_grasp = rospy.ServiceProxy("%s/grasp_planner" % (namespace),
-    #                                 GQCNNGraspPlanner)
-    # plan_grasp_segmask = rospy.ServiceProxy(
-    #     "%s/grasp_planner_segmask" % (namespace), GQCNNGraspPlannerSegmask)
     plan_grasp = node.create_client(GQCNNGraspPlanner, 
                                     "%s/grasp_planner" % (namespace),)
     plan_grasp_segmask = node.create_client(GQCNNGraspPlannerSegmask, 
@@ -161,22 +159,20 @@ def main(args=None):
 
     cv_bridge = CvBridge()
 
+
      
-        
+    np.save(os.getcwd()+"/depth_npy.npy",image_subscription.depth_im)
 
-    #camera_intr = CameraIntrinsics(frame, fx, fy, cx, cy, skew, height, width)
-    camera_intr = CameraIntrinsics(depth_image_subscription.depth_camera_msg.header.frame_id, depth_image_subscription.depth_camera_msg.k[0],
-                                    depth_image_subscription.depth_camera_msg.k[4],depth_image_subscription.depth_camera_msg.k[2],
-                                    depth_image_subscription.depth_camera_msg.k[5], 0.0, depth_image_subscription.depth_camera_msg.height,
-                                    depth_image_subscription.depth_camera_msg.width,)
-    
-    # Read images.
-    color_im = ColorImage(np.zeros([depth_image_subscription.depth_camera_msg.height, 
-                                    depth_image_subscription.depth_camera_msg.width,3]).astype(np.uint8),
-                          frame= depth_image_subscription.depth_camera_msg.header.frame_id)
 
-    depth_im = DepthImage(depth_image_subscription.depth_im, depth_image_subscription.depth_camera_msg.header.frame_id)
-    
+    depth_npy = os.getcwd()+"/depth_npy.npy"
+    depth_im = DepthImage.open(depth_npy, frame=image_subscription.depth_camera_info.header.frame_id)
+
+    color_im = image_subscription.color_im
+
+    camera_intr = CameraIntrinsics(image_subscription.depth_camera_info.header.frame_id, image_subscription.depth_camera_info.k[0],
+                                    image_subscription.depth_camera_info.k[4],image_subscription.depth_camera_info.k[2],
+                                    image_subscription.depth_camera_info.k[5], 0.0, image_subscription.depth_camera_info.height,
+                                    image_subscription.depth_camera_info.width,)
     # Read segmask.
     if segmask_filename is not None:
         pass
@@ -203,12 +199,12 @@ def main(args=None):
         # grasp_resp = plan_grasp(color_im.rosmsg, depth_im.rosmsg,
         #                         camera_intr.rosmsg)
         request_ = GQCNNGraspPlanner.Request()
-        # request_.color_image = color_im.rosmsg
-        # request_.depth_image = depth_im.rosmsg
-        # request_.camera_info = camera_intr.rosmsg
-        request_.color_image = color_im.rosmsg
+        request_.color_image = color_im
         request_.depth_image = depth_im.rosmsg
         request_.camera_info = camera_intr.rosmsg
+        # request_.color_image = color_im
+        # request_.depth_image = depth_im
+        # request_.camera_info = camera_intr_raw
 
 
         try:
@@ -249,12 +245,18 @@ def main(args=None):
         logger.error(e)
         logger.error("Failed to convert image")
         sys.exit(1)
+    print(grasp.q_value)
     action = GraspAction(grasp_2d, grasp.q_value, thumbnail)
+    
+    # cv2.imshow('Result', cv_bridge.imgmsg_to_cv2(depth_im, "32FC1"))
+    # cv2.waitKey(10)
 
     # Vis final grasp.
     if vis_grasp:
+        print(action.q_value)
         vis.figure(size=(10, 10))
-        vis.imshow(depth_im, vmin=0.6, vmax=0.9)
+        print(depth_im)
+        vis.imshow(depth_im, vmin=0.0, vmax=1.0)
         vis.grasp(action.grasp, scale=2.5, show_center=False, show_axis=True)
         vis.title("Planned grasp on depth (Q=%.3f)" % (action.q_value))
         vis.show()

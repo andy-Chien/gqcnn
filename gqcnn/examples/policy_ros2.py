@@ -100,26 +100,16 @@ def main(args=None):
 
     gqcnn_ros_share_dir = get_package_share_directory('gqcnn')
     if depth_im_filename is None:
-        # depth_im_filename = os.path.join(
-        #     os.path.dirname(os.path.realpath(__file__)), "..",
-        #     "data/examples/single_object/primesense/depth_0.npy")
-        depth_im_filename =  gqcnn_ros_share_dir + "/data/examples/single_object/primesense/depth_0.npy"
+        depth_im_filename =  gqcnn_ros_share_dir + "/data/examples/single_object/primesense/depth_9.npy"
     if camera_intr_filename is None:
-        # camera_intr_filename = os.path.join(
-        #     os.path.dirname(os.path.realpath(__file__)), "..",
-        #     "data/calib/primesense/primesense.intr")
         camera_intr_filename =  gqcnn_ros_share_dir + "/data/calib/primesense/primesense.intr"
-    # Wait for grasp planning service and create service proxy.
 
-    
-    # plan_grasp = rospy.ServiceProxy("%s/grasp_planner" % (namespace),
-    #                                 GQCNNGraspPlanner)
-    # plan_grasp_segmask = rospy.ServiceProxy(
-    #     "%s/grasp_planner_segmask" % (namespace), GQCNNGraspPlannerSegmask)
+
     plan_grasp = node.create_client(GQCNNGraspPlanner, 
                                     "%s/grasp_planner" % (namespace),)
     plan_grasp_segmask = node.create_client(GQCNNGraspPlannerSegmask, 
                                             "%s/grasp_planner_segmask" % (namespace))
+    # Wait for grasp planning service and create service proxy.
     plan_grasp.wait_for_service(timeout_sec=1.0)
     plan_grasp_segmask.wait_for_service(timeout_sec=1.0)
 
@@ -128,13 +118,16 @@ def main(args=None):
 
     # Set up sensor.
     camera_intr = CameraIntrinsics.load(camera_intr_filename)
-    print(camera_intr)
 
     # Read images.
     depth_im = DepthImage.open(depth_im_filename, frame=camera_intr.frame)
     color_im = ColorImage(np.zeros([depth_im.height, depth_im.width,
                                     3]).astype(np.uint8),
                           frame=camera_intr.frame)
+    
+    a = np.load(depth_im_filename)
+    print(a)
+    # print(depth_im.data)
 
     # Read segmask.
     if segmask_filename is not None:
@@ -175,6 +168,7 @@ def main(args=None):
         except rclpy.exceptions.ServiceResponseError as e:
             node.get_logger().error('Service response error: %s' % e)
     grasp = grasp_resp.grasp
+    print(grasp.q_value)
 
     # Convert to a grasp action.
     grasp_type = grasp.grasp_type
