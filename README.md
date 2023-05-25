@@ -24,11 +24,13 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
 
 
 ## Installation and Usage with docker
+
 1.clone docker to your <workspace_ws>
     ```shell
     git clone https://github.com/errrr0501/docker_20.04_CUDA12_tf1.15
     ```
 2.build it and run it
+
 3.clone and build realsense_ros2_wrapper
     ```shell
     #open a new terminal
@@ -47,6 +49,7 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
     git clone https://github.com/errrr0501/ROS2_autolab_core.git
     colcon build
     ```
+    
 5.use with your camera topic
     ```shell
     #open a new terminal
@@ -61,6 +64,7 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
     source install/setup.bash
     python3 src/ROS2_gqcnn/gqcnn/examples/policy_camera_ros2.py
     ```
+    
 ## Citation
 If you use any part of this code in a publication, please cite [the appropriate Dex-Net publication](https://berkeleyautomation.github.io/gqcnn/index.html#academic-use).
 
