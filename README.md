@@ -29,7 +29,9 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
     ```shell
     git clone https://github.com/errrr0501/docker_20.04_CUDA12_tf1.15
     ```
+    
 2.build it and run it
+
 
 3.clone and build realsense_ros2_wrapper
     ```shell
