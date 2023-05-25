@@ -26,7 +26,7 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
 ## Installation and Usage with docker
 
 1.clone docker to your <workspace_ws>.
-    ```shell
+    ```bash
     git clone https://github.com/errrr0501/docker_20.04_CUDA12_tf1.15
     ```
     
@@ -34,7 +34,7 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
 
 
 3.clone and build realsense_ros2_wrapper.
-    ```shell
+    ```bash
     #open a new terminal
     mkdir <your realsense workspace>
     cd <your realsense workspace>
@@ -43,7 +43,7 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
     ```
 
 4.make a workspace and clone gqcnn and autolab_core.
-    ```shell
+    ```bash
     #open a new terminal
     mkdir <your gqcnn workspace>
     cd <your gqcnn workspace>
@@ -53,7 +53,7 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
     ```
     
 5.use with your camera topic.
-    ```shell
+    ```bash
     #open a new terminal
     cd <your realsense workspace>
     source install/setup.bash
