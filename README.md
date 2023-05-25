@@ -26,46 +26,46 @@ Please see the [docs](https://berkeleyautomation.github.io/gqcnn/) for installat
 ## Installation and Usage with docker
 
 1.clone docker to your <workspace_ws>.
-    ```bash
-    git clone https://github.com/errrr0501/docker_20.04_CUDA12_tf1.15
-    ```
+```bash
+git clone https://github.com/errrr0501/docker_20.04_CUDA12_tf1.15
+ ```
     
 2.build it and run it.
 
 
 3.clone and build realsense_ros2_wrapper.
-    ```bash
-    #open a new terminal
-    mkdir <your realsense workspace>
-    cd <your realsense workspace>
-    git clone https://github.com/IntelRealSense/realsense-ros.git -b ros2-development
-    colcon build
-    ```
+```bash
+#open a new terminal
+mkdir <your realsense workspace>
+cd <your realsense workspace>
+git clone https://github.com/IntelRealSense/realsense-ros.git -b ros2-development
+colcon build
+```
 
 4.make a workspace and clone gqcnn and autolab_core.
-    ```bash
-    #open a new terminal
-    mkdir <your gqcnn workspace>
-    cd <your gqcnn workspace>
-    git clone https://github.com/errrr0501/ROS2_gqcnn.git
-    git clone https://github.com/errrr0501/ROS2_autolab_core.git
-    colcon build
-    ```
+```bash
+#open a new terminal
+mkdir <your gqcnn workspace>
+cd <your gqcnn workspace>
+git clone https://github.com/errrr0501/ROS2_gqcnn.git
+git clone https://github.com/errrr0501/ROS2_autolab_core.git
+colcon build
+```
     
 5.use with your camera topic.
-    ```bash
-    #open a new terminal
-    cd <your realsense workspace>
-    source install/setup.bash
-    ros2 launch realsense2_camera rs_launch.py depth_module.profile:=640x480x30 rgb_camera.profile:=640x480x30 align_depth.enable:=true
-    #open a new terminal
-    cd <your gqcnn workspace>
-    source install/setup.bash
-    ros2 launch gqcnn grasp_planning_service.launch.py
-    #open a new terminal
-    source install/setup.bash
-    python3 src/ROS2_gqcnn/gqcnn/examples/policy_camera_ros2.py
-    ```
+```bash
+#open a new terminal
+cd <your realsense workspace>
+source install/setup.bash
+ros2 launch realsense2_camera rs_launch.py depth_module.profile:=640x480x30 rgb_camera.profile:=640x480x30 align_depth.enable:=true
+#open a new terminal
+cd <your gqcnn workspace>
+source install/setup.bash
+ros2 launch gqcnn grasp_planning_service.launch.py
+#open a new terminal
+source install/setup.bash
+python3 src/ROS2_gqcnn/gqcnn/examples/policy_camera_ros2.py
+```
     
 ## Citation
 If you use any part of this code in a publication, please cite [the appropriate Dex-Net publication](https://berkeleyautomation.github.io/gqcnn/index.html#academic-use).
