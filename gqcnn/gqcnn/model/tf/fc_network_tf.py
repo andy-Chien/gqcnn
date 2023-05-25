@@ -269,7 +269,7 @@ class FCGQCNNTF(GQCNNTF):
                 tf.tile(
                     tf.reshape(input_pose_node, tf.constant((-1, 1, 1, 1))),
                     tf.constant((1, input_height, input_width, 1))))
-            norm_sub_im = tf.compat.v1.div(tf.subtract(sub_im, sub_mean), sub_std)
+            norm_sub_im = tf.div(tf.subtract(sub_im, sub_mean), sub_std)
             input_node = norm_sub_im
 
         output_node = input_node
