@@ -62,14 +62,17 @@ class image_subscriber(Node):
 
     def __init__(self):
         super().__init__("depth_image_Subscriber")
-        depth_camera_info_topic_ = '/camera/depth/camera_info'
-        color_image_topic_ = '/camera/color/image_raw'
-        depth_image_topic_ = '/camera/aligned_depth_to_color/image_raw'
+        # depth_camera_info_topic_ = '/camera/depth/camera_info'
+        # color_image_topic_ = '/camera/color/image_raw'
+        # depth_image_topic_ = '/camera/aligned_depth_to_color/image_raw'
+        depth_camera_info_topic_ = '/depth_to_rgb/camera_info'
+        color_image_topic_ = '/rgb/image_raw'
+        depth_image_topic_ = '/depth_to_rgb/image_raw'
         self.bridge = CvBridge()
         # color_camera_info_subscriber_ = node.create_subscription(CameraInfo, color_camera_info_topic_, color_camera_Info_callback, 10)
         self.depth_camera_info_subscriber_ = self.create_subscription(CameraInfo, depth_camera_info_topic_,
                                                                   self.depth_camera_Info_callback, 10)
-        self.depth_image_subscriber_ = self.create_subscription(Image, color_image_topic_, 
+        self.color_image_subscriber_ = self.create_subscription(Image, color_image_topic_, 
                                                            self.color_image_Info_callback, 10)
         self.depth_image_subscriber_ = self.create_subscription(Image, depth_image_topic_, 
                                                            self.depth_image_Info_callback, 10)
