@@ -92,4 +92,4 @@ ENV/
 #*
 
 #models
-gqcnn/models/*
+gqcnn/models/*.*
