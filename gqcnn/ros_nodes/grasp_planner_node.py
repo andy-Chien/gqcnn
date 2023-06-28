@@ -132,10 +132,9 @@ class GraspPlanner(object):
                                   frame=camera_intr.frame)
 
             depth_im = DepthImage(self.cv_bridge.imgmsg_to_cv2(
-                raw_depth, desired_encoding="passthrough"),
+                raw_depth, desired_encoding="32FC1") / 1000.0,
                                   frame=camera_intr.frame)
 
-            print(depth_im.data)
         except CvBridgeError as cv_bridge_exception:
             self._node.get_logger().info(cv_bridge_exception)
 
