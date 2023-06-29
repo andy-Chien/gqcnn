@@ -2,6 +2,22 @@ gqcnn:
   grasp_planner:
     ros__parameters:
       model_name: 
+        version: FC-GQCNN-4.0-PJ
+      model_dir: default
+      fully_conv: True
+
+gqcnn_pj:
+  grasp_planner:
+    ros__parameters:
+      model_name: 
+        version: FC-GQCNN-4.0-PJ
+      model_dir: default
+      fully_conv: True
+
+gqcnn_suc:
+  grasp_planner:
+    ros__parameters:
+      model_name: 
         version: FC-GQCNN-4.0-SUCTION
       model_dir: default
       fully_conv: True
