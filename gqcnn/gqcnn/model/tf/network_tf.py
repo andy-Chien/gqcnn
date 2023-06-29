@@ -38,8 +38,10 @@ import os
 import time
 
 import numpy as np
-import tensorflow as tf
-import tensorflow.train as tcf
+# import tensorflow as tf
+import tensorflow.compat.v1 as tf
+# import tensorflow.train as tcf
+import tensorflow.compat.v1.train as tcf
 
 from autolab_core import Logger
 from ...utils import (reduce_shape, read_pose_data, pose_dim,
